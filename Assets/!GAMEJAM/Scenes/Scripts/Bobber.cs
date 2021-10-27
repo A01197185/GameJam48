@@ -9,7 +9,7 @@ using VRC.Udon;
 public class Bobber : UdonSharpBehaviour {
 
     public float underDrag = 1.5f, underAngularDrag = 2f, airDrag = 0f, airAngularDrag = 0.05f, floatingPower = 70f, waterHeight = 0f;
-    public bool catching = false;
+    public bool catching = false, automatic = false;
 
     private Rigidbody bobber;
     private bool up = true;
@@ -19,13 +19,17 @@ public class Bobber : UdonSharpBehaviour {
     }
 
     private void FixedUpdate() {
-        if (catching && up && floatingPower > 30f) {
-            floatingPower -= 1f;
-        } else if(catching) {
-            floatingPower += 1f;
-            up = floatingPower > 90f;
+        if (automatic) {
+            if (catching && up && floatingPower > 30f){
+                floatingPower -= 1f;
+            }else if (catching){
+                floatingPower += 1f;
+                up = floatingPower > 90f;
+            }else{
+                floatingPower = 70f;
+            }
         } else {
-            floatingPower = 70f;
+
         }
         if (((transform.position.y - waterHeight) < 0)) {
             bobber.AddForceAtPosition(Vector3.up*floatingPower*Mathf.Abs((transform.position.y - waterHeight)), transform.position, ForceMode.Force);
