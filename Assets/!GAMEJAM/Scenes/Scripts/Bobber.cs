@@ -11,13 +11,13 @@ public class Bobber : UdonSharpBehaviour {
     public float underDrag = 1.5f, underAngularDrag = 2f, airDrag = 0f, airAngularDrag = 0.05f, floatingPower = 70f, waterHeight = 0f;
     public bool catching = false, automatic = false;
 
-    private Rigidbody bobber;
+    public Rigidbody rb;
     private bool up = true;
 
     public bool reeledIn = true;
 
     void Start() {
-        bobber = GetComponent<Rigidbody>();
+        rb = GetComponent<Rigidbody>();
     }
 
     private void FixedUpdate() {
@@ -36,12 +36,12 @@ public class Bobber : UdonSharpBehaviour {
 
         }
         if (((transform.position.y - waterHeight) < 0)) {
-            bobber.AddForceAtPosition(Vector3.up*floatingPower*Mathf.Abs((transform.position.y - waterHeight)), transform.position, ForceMode.Force);
-            bobber.drag = underDrag;
-            bobber.angularDrag = underAngularDrag;
+            rb.AddForceAtPosition(Vector3.up*floatingPower*Mathf.Abs((transform.position.y - waterHeight)), transform.position, ForceMode.Force);
+            rb.drag = underDrag;
+            rb.angularDrag = underAngularDrag;
         } else {
-            bobber.drag = airDrag;
-            bobber.angularDrag = airAngularDrag;
+            rb.drag = airDrag;
+            rb.angularDrag = airAngularDrag;
         }
     }
 }
