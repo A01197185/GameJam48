@@ -14,11 +14,15 @@ public class Bobber : UdonSharpBehaviour {
     private Rigidbody bobber;
     private bool up = true;
 
+    public bool reeledIn = true;
+
     void Start() {
         bobber = GetComponent<Rigidbody>();
     }
 
     private void FixedUpdate() {
+        if (reeledIn) return;
+
         if (automatic) {
             if (catching && up && floatingPower > 30f){
                 floatingPower -= 1f;
