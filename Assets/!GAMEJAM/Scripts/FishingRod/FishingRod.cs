@@ -9,6 +9,10 @@ public class FishingRod : UdonSharpBehaviour
     [Range(0, 1f)]
     public float bend = 0f;
 
+    [Header("Fishing")]
+    [SerializeField] float minCatchTime = 5f;
+    [SerializeField] float maxCatchTime = 15f;
+
     [Header("Bobber")]
     [SerializeField] Bobber bobber;
     [SerializeField] Transform bobberTransform;
@@ -33,7 +37,12 @@ public class FishingRod : UdonSharpBehaviour
 
     [Header("Audio")]
     [SerializeField] AudioSource audioSource;
+    [SerializeField] AudioSource effectAudioSource;
+    [SerializeField] AudioSource bobberAudioSource;
+    [SerializeField] AudioClip castLineSound;
     [SerializeField] AudioClip reelInAudio;
+    [SerializeField] AudioClip fishBitSound;
+    [SerializeField] AudioClip caughtFish;
 
     Vector3 previousPosition;
     Vector3 knobVelocity;
@@ -43,6 +52,7 @@ public class FishingRod : UdonSharpBehaviour
     bool isUserInVR;
 
     bool reeledIn = true;
+    bool fishBiting = false;
 
     void Start()
     {
@@ -62,7 +72,6 @@ public class FishingRod : UdonSharpBehaviour
         if (!Networking.IsOwner(gameObject)) return;
 
         float crankPower = 0f;
-        float newIntensity = 0f;
 
         if (pickup.IsHeld && pickup.currentPlayer.isLocal)
         {
@@ -105,30 +114,81 @@ public class FishingRod : UdonSharpBehaviour
             audioSource.Play();
         }
 
+
+
+        if(!reeledIn && crankPower >= 0.9f)
+        {
+            if (fishBiting)
+            {
+                CatchFish();
+            } else
+            {
+                SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(ReelInLine));
+            }
+            
+        }
+
     }
 
     public override void OnPickupUseDown()
     {
-        reeledIn = !reeledIn;
-
-        SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, reeledIn ? nameof(ReelInLine) : nameof(CastLine));
+        if (reeledIn)
+        {
+            SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(CastLine));
+        }
+        
+        //SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, reeledIn ? nameof(CastLine) : nameof(ReelInLine));
     }
 
     public void CastLine()
     {
+        if (!reeledIn) return;
+
+        reeledIn = false;
         bobberTransform.parent = null;
         bobber.rb.isKinematic = false;
         bobber.reeledIn = false;
 
         bobber.rb.velocity = transform.forward * 10;
+
+        effectAudioSource.PlayOneShot(castLineSound);
+
+        if(Networking.IsOwner(gameObject))
+            SendCustomEventDelayedSeconds(nameof(FishBit), Random.Range(minCatchTime, maxCatchTime));
+    }
+
+    public void FishBit()
+    {
+        if (reeledIn || fishBiting) return;
+
+        SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(FishBitAll));
+        fishBiting = true;
+    }
+
+    public void FishBitAll()
+    {
+        //TODO Bobber effect!
+        bobberAudioSource.PlayOneShot(fishBitSound);
+        bend = 1f;
+    }
+
+    public void CatchFish()
+    {
+        bend = 0f;
+        fishBiting = false;
+        
+        effectAudioSource.PlayOneShot(caughtFish);
+
+        SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(ReelInLine));
     }
 
     public void ReelInLine()
     {
-
+        reeledIn = true;
         bobber.rb.isKinematic = true;
         bobber.reeledIn = true;
         bobberTransform.parent = transform;
+        bend = 0f;
 
         bobberTransform.localPosition = bobberReset;
     }
