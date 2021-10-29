@@ -4,10 +4,14 @@ using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon;
 
+[UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class Player : UdonSharpBehaviour
 {
     [SerializeField] Highscore highscore;
 
+    [HideInInspector]
+    public FishingRod fishingRod;
+    public MiniGame miniGame;
 
     [HideInInspector]
     public VRCPlayerApi Owner;
@@ -37,6 +41,11 @@ public class Player : UdonSharpBehaviour
     {
         isAssigned = true;
         highscore._UpdateScores();
+
+        if (Owner.isLocal)
+        {
+            miniGame.localPlayer = this;
+        }
     }
 
     public void _OnCleanup()

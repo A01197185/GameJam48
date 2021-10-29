@@ -6,7 +6,7 @@ using VRC.Udon;
 
 public class FishingRod : UdonSharpBehaviour
 {
-    [Range(0, 1f)]
+    [HideInInspector]
     public float bend = 0f;
 
     [Header("Fishing")]
@@ -43,6 +43,10 @@ public class FishingRod : UdonSharpBehaviour
     [SerializeField] AudioClip reelInAudio;
     [SerializeField] AudioClip fishBitSound;
     [SerializeField] AudioClip caughtFish;
+    [SerializeField] AudioClip looseFish;
+
+    [Header("MiniGame")]
+    public MiniGame miniGame;
 
     Vector3 previousPosition;
     Vector3 knobVelocity;
@@ -53,6 +57,8 @@ public class FishingRod : UdonSharpBehaviour
 
     bool reeledIn = true;
     bool fishBiting = false;
+
+    float crankPower = 0f;
 
     void Start()
     {
@@ -71,7 +77,7 @@ public class FishingRod : UdonSharpBehaviour
     {
         if (!Networking.IsOwner(gameObject)) return;
 
-        float crankPower = 0f;
+        float newCrankPower = 0f;
 
         if (pickup.IsHeld && pickup.currentPlayer.isLocal)
         {
@@ -82,40 +88,53 @@ public class FishingRod : UdonSharpBehaviour
                 handle.localRotation = Quaternion.LookRotation(lookPos);
             } else
             {
-                if (Input.GetAxis("Mouse ScrollWheel") > 0)
+                if (Input.GetKey(KeyCode.E))
                 {
                     handle.Rotate(Vector3.up * 20f, Space.Self);
                     knobPickupTransform.SetPositionAndRotation(knob.position, knob.rotation);
                 }
-                else if (Input.GetAxis("Mouse ScrollWheel") < 0)
+                /*else if (Input.GetAxis("Mouse ScrollWheel") < 0)
                 {
-                    handle.Rotate(Vector3.up * 20f, Space.Self);
+                    handle.Rotate(Vector3.up * -20f, Space.Self);
                     knobPickupTransform.SetPositionAndRotation(knob.position, knob.rotation);
-                }
+                }*/
             }
 
             knobVelocity = (knobPickupTransform.localPosition - previousPosition) / Time.deltaTime;
             previousPosition = knobPickupTransform.localPosition;
 
-            crankPower = Mathf.Clamp01(knobVelocity.magnitude / 1.5f);
+            newCrankPower = Mathf.Clamp01(knobVelocity.magnitude / 1.5f);
 
-            if (!isUserInVR) crankPower *= 5;
+            //if (!isUserInVR) crankPower *= 5;
+            if (!isUserInVR) newCrankPower *= 1;
+
         } else
         {
-            crankPower = 0f;
+            newCrankPower = 0f;
         }
 
-        if (audioSource.isPlaying && crankPower <= 0.15f)
+        /*
+        crankPower = Mathf.Lerp(crankPower, newCrankPower, Time.deltaTime);
+
+        crankPower = Mathf.Clamp(crankPower, 0, 0.16f);
+        
+        Debug.Log(crankPower);*/
+
+        if (audioSource.isPlaying && newCrankPower <= 0.15f)
         {
             audioSource.Stop();
+            miniGame.press = false;
         }
-        else if (!audioSource.isPlaying && crankPower > 0.15f)
+        else if (!audioSource.isPlaying && newCrankPower > 0.15f)
         {
             audioSource.Play();
+            miniGame.press = true;
         }
 
 
 
+
+        /*
         if(!reeledIn && crankPower >= 0.9f)
         {
             if (fishBiting)
@@ -126,7 +145,7 @@ public class FishingRod : UdonSharpBehaviour
                 SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(ReelInLine));
             }
             
-        }
+        }*/
 
     }
 
@@ -161,6 +180,8 @@ public class FishingRod : UdonSharpBehaviour
     {
         if (reeledIn || fishBiting) return;
 
+        miniGame._StartPlaying();
+
         SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(FishBitAll));
         fishBiting = true;
     }
@@ -184,6 +205,9 @@ public class FishingRod : UdonSharpBehaviour
 
     public void ReelInLine()
     {
+        if (fishBiting) effectAudioSource.PlayOneShot(looseFish);
+        fishBiting = false;
+
         reeledIn = true;
         bobber.rb.isKinematic = true;
         bobber.reeledIn = true;
@@ -195,11 +219,11 @@ public class FishingRod : UdonSharpBehaviour
 
     public override void OnPickup()
     {
-        rb.isKinematic = false;
-
         knobPickup.pickupable = true;
         isUserInVR = Networking.LocalPlayer.IsUserInVR();
         Networking.SetOwner(Networking.LocalPlayer, bobberTransform.gameObject);
+
+        miniGame.localPlayer.fishingRod = this;
 
         if (!isUserInVR)
         {
@@ -216,7 +240,7 @@ public class FishingRod : UdonSharpBehaviour
     private void DrawRope()
     {
         lineRenderer.SetPosition(0, startPoint.position);
-        midPoint = new Vector3(startPoint.position.x,endPoint.position.y/2,startPoint.position.z);
+        midPoint = new Vector3(startPoint.position.x,endPoint.position.y,startPoint.position.z);
 
         int i = 0;
         for(float ratio = 0; ratio <= 1f; ratio += 1.0f / lineQuality, i++)
